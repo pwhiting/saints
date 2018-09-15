@@ -16,8 +16,7 @@ repositories {
 
 dependencies {
     compile 'com.opencsv:opencsv:4.2'
-    // https://mvnrepository.com/artifact/com.rometools/rome
-    compile group: 'com.rometools', name: 'rome', version: '1.7.3'
+    compile 'com.rometools:rome:1.11.0'
     compile 'org.redundent:kotlin-xml-builder:1.4'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     compile 'com.opencsv:opencsv:4.2'
