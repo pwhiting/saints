@@ -1,0 +1,22 @@
+# Temp files
+*~
+
+# IDEA
+.idea/
+*.ipr
+*.iml
+*.iws
+
+# Maven
+target/
+
+#Gradle
+.gradle/
+build/
+local.properties
+
+# Android
+classes/
+bin/
+gen/
+gen-external-apklibs/
