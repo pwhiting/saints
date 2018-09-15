@@ -60,12 +60,13 @@ fun buildRSS(audioFiles: List<MutableMap<String, String>>): SyndFeedImpl {
     feed.title = "Saints"
     feed.link = "http://pete.dugg.in/s"
     feed.description = "Saints podcast"
-    var t: Long = 0;
+    var dateCounter = now().toEpochSecond(ZoneOffset.UTC)
     for(file in audioFiles) {
+        if(file[CSVHeaders.VOICE.value]=="female") continue
         val entry = SyndEntryImpl()
         entry.title = file[CSVHeaders.TITLE.value]
         entry.link = file[CSVHeaders.MEDIA.value]
-        entry.publishedDate = Date(t++)
+        entry.publishedDate = Date(1000L*dateCounter++)
         val enc = SyndEnclosureImpl()
         enc.length=file[CSVHeaders.SIZE.value]?.toLongOrNull() ?: 0
         enc.type="audio/mpeg"
