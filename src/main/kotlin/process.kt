@@ -4,6 +4,13 @@ import com.opencsv.CSVReaderHeaderAware
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.FileWriter
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.LocalDateTime.*
+import java.time.ZoneOffset
+import java.util.*
+import javax.swing.text.DateFormatter
 
 fun main(args: Array<String>) {
     if (args.size != 2) {
@@ -53,11 +60,12 @@ fun buildRSS(audioFiles: List<MutableMap<String, String>>): SyndFeedImpl {
     feed.title = "Saints"
     feed.link = "http://pete.dugg.in/s"
     feed.description = "Saints podcast"
+    var t: Long = 0;
     for(file in audioFiles) {
         val entry = SyndEntryImpl()
         entry.title = file[CSVHeaders.TITLE.value]
         entry.link = file[CSVHeaders.MEDIA.value]
-        //entry.setPublishedDate(DATE_PARSER.parse("2004-06-08"))
+        entry.publishedDate = Date(t++)
         val enc = SyndEnclosureImpl()
         enc.length=file[CSVHeaders.SIZE.value]?.toLongOrNull() ?: 0
         enc.type="audio/mpeg"
