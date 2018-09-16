@@ -1,91 +1,122 @@
-import com.rometools.rome.feed.synd.*
-import com.rometools.rome.io.SyndFeedOutput
 import com.opencsv.CSVReaderHeaderAware
+import com.rometools.rome.feed.synd.SyndEnclosure
+import com.rometools.rome.feed.synd.SyndEnclosureImpl
+import com.rometools.rome.feed.synd.SyndEntryImpl
+import com.rometools.rome.feed.synd.SyndFeed
+import com.rometools.rome.feed.synd.SyndFeedImpl
+import com.rometools.rome.io.SyndFeedOutput
 import java.io.BufferedReader
 import java.io.FileReader
 import java.io.FileWriter
-import java.time.LocalDateTime.*
+import java.time.LocalDateTime.now
 import java.time.ZoneOffset
-import java.util.*
+import java.util.Date
 
 fun main(args: Array<String>) {
-    try{
-        if (args.size != 2) throw Exception("include csv with audio files as first argument and output file as second")
-        writeRSS(buildRSS(readFile(args[0])),args[1]) // bad form?
-    } catch (e: Exception) {
-        println("Terminating with errors\n $e")
+    if (args.size != 2) {
+        println("include csv with audio files as first argument and output file as second")
+        return
     }
+
+    val csvFilename = args[0]
+    val outputFilename = args[1]
+
+    writeRSS(buildRSS(readCsvFile(csvFilename)), outputFilename)
 }
 
-enum class CSVHeaders(val value:String) {
-    ID ("id"),
-    TITLE ("title"),
-    MEDIA ("media_url"),
-    SIZE ( "file_size"),
-    DURATION ( "duration"),
-    VOICE ("voice")
+enum class CSVHeaders(val value: String) {
+    ID("id"),
+    TITLE("title"),
+    MEDIA("media_url"),
+    SIZE("file_size"),
+    DURATION("duration"),
+    VOICE("voice")
 }
 
-// read csv file containing rows of audio files with at least the columns in CSVHeaders above.
-fun readFile(file: String): List<MutableMap<String, String>> {
-    val audioFiles = mutableListOf<MutableMap<String, String>>()
-    try {
-        val csvReader = CSVReaderHeaderAware(BufferedReader(FileReader(file)))
-        var audioFile = csvReader.readMap()
-        var missing = ""
-        for (key in CSVHeaders.values()) {
-            if (!audioFile.containsKey(key.value)) missing+="\n\tmissing column ${key.value} in csv file"
-        }
-        if(missing.length==0) {
-            while (audioFile != null) {
-                audioFiles.add(audioFile)
-                audioFile = csvReader.readMap()
+data class RssAudioItem(val title: String, val size: Long, val url: String, val type: String = "audio/mpeg")
+
+/**
+ * Read the CSV file
+ * @param csvFilename CSV Filename with RSS audio data, first row must contain column names
+ * @return List of RssAudioItems
+ */
+fun readCsvFile(csvFilename: String): List<RssAudioItem> {
+    val rssAudioItemList = mutableListOf<RssAudioItem>()
+
+    // Read csv file
+    CSVReaderHeaderAware(BufferedReader(FileReader(csvFilename))).use { csvReader ->
+        // Read all the CSV columns names and validate
+        val csvColumnNameMap = csvReader.readMap()
+        CSVHeaders.values().forEach { key ->
+            if (!csvColumnNameMap.containsKey(key.value)) {
+                throw IllegalArgumentException("unexpected column ${key.value} in csv file")
             }
         }
-        csvReader.close()
-        if (missing.length>0) throw Exception("malformed CSV file: $file. $missing")
-    } catch (e: Exception) {
-        throw Exception("Error reading CSV file\n $e")
+
+        // Read all the row data an place into rssAudioItemList
+        var csvRowDataMap: Map<String, String>? = csvReader.readMap()
+        while (csvRowDataMap != null) {
+            // skip any audio with a voice type of female
+            val voiceType = csvRowDataMap[CSVHeaders.VOICE.value] ?: ""
+            if (voiceType != "female") {
+                val rssAudioItem = RssAudioItem(
+                        title = csvRowDataMap[CSVHeaders.TITLE.value] ?: "",
+                        size = csvRowDataMap[CSVHeaders.SIZE.value]?.toLongOrNull() ?: 0,
+                        url = csvRowDataMap[CSVHeaders.MEDIA.value] ?: ""
+                )
+
+                rssAudioItemList.add(rssAudioItem)
+            }
+
+            // read next row
+            csvRowDataMap = csvReader.readMap()
+        }
     }
-    return audioFiles
+
+    return rssAudioItemList
 }
 
-
-// Build a minimal RSS feed using a list of audio files
-fun buildRSS(audioFiles: List<MutableMap<String, String>>): SyndFeedImpl {
-    val feed = SyndFeedImpl()
-    try {
-        feed.feedType = "rss_2.0"
-        feed.title = "Saints"
-        feed.link = "http://pete.dugg.in/s"
-        feed.description = "Saints podcast"
-        // create a date variable to be used for publishedDate - set it to current time
-        var dateCounter = now().toEpochSecond(ZoneOffset.UTC)
-        for (file in audioFiles) {
-            if (file[CSVHeaders.VOICE.value] == "female") continue
-            val entry = SyndEntryImpl()
-            entry.title = file[CSVHeaders.TITLE.value]
-            entry.link = file[CSVHeaders.MEDIA.value]
-            entry.publishedDate = Date(1000L * dateCounter--)
-            val enc = SyndEnclosureImpl()
-            enc.length = file[CSVHeaders.SIZE.value]?.toLongOrNull() ?: 0
-            enc.type = "audio/mpeg"
-            enc.url = file[CSVHeaders.MEDIA.value]
-            entry.enclosures = listOf<SyndEnclosure>(enc)
-            feed.entries.add(entry)
-        }
-    } catch (e: Exception){
-        throw Exception("Error building RSS\n $e")
+/**
+ * Build RSS Feed
+ * @param rssAudioItemList List of RSS audio items
+ * @return RSS feed
+ */
+fun buildRSS(rssAudioItemList: List<RssAudioItem>): SyndFeedImpl {
+    val feed = SyndFeedImpl().apply {
+        feedType = "rss_2.0"
+        title = "Saints"
+        link = "http://pete.dugg.in/s"
+        description = "Saints podcast"
     }
+
+    var dateCounter = now().toEpochSecond(ZoneOffset.UTC)
+    rssAudioItemList.forEach { rssAudioItem ->
+        val enc = SyndEnclosureImpl().apply {
+            length = rssAudioItem.size
+            type = rssAudioItem.type
+            url = rssAudioItem.url
+        }
+
+        val entry = SyndEntryImpl().apply {
+            title = rssAudioItem.title
+            link = rssAudioItem.url
+            publishedDate = Date(1000L * dateCounter++)
+            enclosures = listOf<SyndEnclosure>(enc)
+        }
+
+        feed.entries.add(entry)
+    }
+
     return feed
 }
 
-fun writeRSS(feed: SyndFeed,file: String) {
-    try {
-        val writer = FileWriter(file)
+/**
+ * Write SyncFeed to output file
+ * @param feed SyndFeed
+ * @param outputFilename name of file to be written
+ */
+fun writeRSS(feed: SyndFeed, outputFilename: String) {
+    FileWriter(outputFilename).use { writer ->
         SyndFeedOutput().output(feed, writer)
-        writer.close()
-    } catch (e: Exception) {
-        throw Exception("Error while writing file $file\n $e")
     }
 }
