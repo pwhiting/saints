@@ -8,6 +8,7 @@ import java.util.*
 import com.opencsv.bean.CsvBindByName
 import com.opencsv.bean.CsvToBeanBuilder
 
+
 class AudioInfo {
     @CsvBindByName
     val title: String? = null
@@ -24,9 +25,9 @@ fun main(args: Array<String>) {
         if (args.size != 2) throw Exception("include csv with audio files as first argument and output file as second")
         val inputFilename = args[0]
         val outputFilename = args[1]
-        val beans = CsvToBeanBuilder<AudioInfo>(FileReader(inputFilename)).
+        val artifacts = CsvToBeanBuilder<AudioInfo>(FileReader(inputFilename)).
                 withType(AudioInfo::class.java).build().parse()
-        val rss = buildRSS(beans)
+        val rss = buildRSS(artifacts)
         FileWriter(outputFilename).use { writer -> SyndFeedOutput().output(rss, writer) }
     } catch (e: Exception) {
         println("Terminating with errors\n $e")
