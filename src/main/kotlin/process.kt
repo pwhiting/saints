@@ -8,7 +8,6 @@ import java.util.*
 import com.opencsv.bean.CsvBindByName
 import com.opencsv.bean.CsvToBeanBuilder
 
-
 class AudioInfo {
     @CsvBindByName
     val title: String? = null
@@ -40,28 +39,27 @@ fun main(args: Array<String>) {
  * @return SyndFeed containing the RSS file
  */
 fun buildRSS(artifacts: List<AudioInfo>): SyndFeedImpl {
+    var dateCounter = now().toEpochSecond(ZoneOffset.UTC)
     val feed = SyndFeedImpl().apply {
         feedType = "rss_2.0"
         title = "Saints"
         link = "http://pete.dugg.in/s"
         description = "Saints podcast"
+        publishedDate = Date(1000L * dateCounter)
     }
-    var dateCounter = now().toEpochSecond(ZoneOffset.UTC)
-    artifacts.forEach { artifact ->
-        if(artifact.voice=="male") {
-            val enc = SyndEnclosureImpl().apply {
-                length = artifact.file_size
-                type = "audio/mpeg"
-                url = artifact.media_url
-            }
-            val entry = SyndEntryImpl().apply {
-                title = artifact.title
-                link = artifact.media_url
-                publishedDate = Date(1000L * dateCounter--)
-                enclosures = listOf<SyndEnclosure>(enc)
-            }
-            feed.entries.add(entry)
+    artifacts.filter {it.voice=="male"}.forEach {artifact ->
+        val enc = SyndEnclosureImpl().apply {
+            length = artifact.file_size
+            type = "audio/mpeg"
+            url = artifact.media_url
         }
+        val entry = SyndEntryImpl().apply {
+            title = artifact.title
+            link = artifact.media_url
+            publishedDate = Date(1000L * dateCounter--)
+            enclosures = listOf<SyndEnclosure>(enc)
+        }
+        feed.entries.add(entry)
     }
     return feed
 }
